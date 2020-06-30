@@ -64,54 +64,54 @@ public class ClienteServiceImpl implements ClienteService {
 		// correspondientes
 		SimpleDateFormat sdf = new SimpleDateFormat("dd/mm/yyyy");
 		switch (tipo) {
-			case 1:
-				resultado = clienteRepository.findBySnombres(valor1);
-				break;
+		case 1:
+			resultado = clienteRepository.findBySnombres(valor1);
+			break;
 
-			case 2:
-				resultado = clienteRepository.findBySnombresAndSapellidos(valor1, valor2);
-				break;
+		case 2:
+			resultado = clienteRepository.findBySnombresAndSapellidos(valor1, valor2);
+			break;
 
-			// Para este caso buscaremos aquellos clientes que cumplan con WHERE S_NOMBRES
-			// LIKE '%' + valor1 + '%'
-			case 3:
-				resultado = clienteRepository.findBySnombresLike("%" + valor1 + "%");
-				break;
+		// Para este caso buscaremos aquellos clientes que cumplan con WHERE S_NOMBRES
+		// LIKE '%' + valor1 + '%'
+		case 3:
+			resultado = clienteRepository.findBySnombresLike("%" + valor1 + "%");
+			break;
 
-			case 4:
-				resultado = clienteRepository.findByBactivoTrue();
-				break;
+		case 4:
+			resultado = clienteRepository.findByBactivoTrue();
+			break;
 
-			case 5:
-				resultado = clienteRepository.findByBactivoFalse();
-				break;
+		case 5:
+			resultado = clienteRepository.findByBactivoFalse();
+			break;
 
-			// Aca tengo que convertir el String que viene en formato dd/mm/yyyy en Date, ya
-			// que eso es lo que recibe el método
-			case 6:
-				Date fecha1 = sdf.parse(valor1);
-				resultado = clienteRepository.findByFnacimientoAfter(fecha1);
-				break;
+		// Aca tengo que convertir el String que viene en formato dd/mm/yyyy en Date, ya
+		// que eso es lo que recibe el método
+		case 6:
+			Date fecha1 = sdf.parse(valor1);
+			resultado = clienteRepository.findByFnacimientoAfter(fecha1);
+			break;
 
-			case 7:
-				Date fecha2 = sdf.parse(valor1);
-				Date fecha3 = sdf.parse(valor2);
-				resultado = clienteRepository.findByFnacimientoBetween(fecha2, fecha3);
-				break;
+		case 7:
+			Date fecha2 = sdf.parse(valor1);
+			Date fecha3 = sdf.parse(valor2);
+			resultado = clienteRepository.findByFnacimientoBetween(fecha2, fecha3);
+			break;
 
-			// Para este caso, crearemos una lista quemada con nombres que son enviados al
-			// metodo
-			case 8:
-				List<String> nombres = new ArrayList<String>();
-				nombres.add("Bryan");
-				nombres.add("Del");
-				nombres.add("Cordula");
-				resultado = clienteRepository.findBySnombresIn(nombres);
-				break;
+		// Para este caso, crearemos una lista quemada con nombres que son enviados al
+		// metodo
+		case 8:
+			List<String> nombres = new ArrayList<String>();
+			nombres.add("Bryan");
+			nombres.add("Del");
+			nombres.add("Cordula");
+			resultado = clienteRepository.findBySnombresIn(nombres);
+			break;
 
-			default:
-				resultado = new ArrayList<>();
-				break;
+		default:
+			resultado = new ArrayList<>();
+			break;
 
 		}
 		return resultado;
@@ -142,22 +142,22 @@ public class ClienteServiceImpl implements ClienteService {
 	@Transactional
 	public Integer actualizarClientes(Integer cliente, Boolean estado) {
 		int res = 0;
-		//Creo una instancia con el nombre del procedimiento a ejecutar
+		// Creo una instancia con el nombre del procedimiento a ejecutar
 		StoredProcedureQuery storedProcedure = entityManager.createStoredProcedureQuery("store.sp_actualizar_cliente");
 
-		//Registrando parametros del procedimiento
+		// Registrando parametros del procedimiento
 		storedProcedure.registerStoredProcedureParameter("P_CLIENTE", Integer.class, ParameterMode.IN);
 		storedProcedure.registerStoredProcedureParameter("P_ESTADO", Boolean.class, ParameterMode.IN);
 		storedProcedure.registerStoredProcedureParameter("P_SALIDA", Integer.class, ParameterMode.OUT);
 
-		//Seteando valores a los parametros de entrada al procedimiento
+		// Seteando valores a los parametros de entrada al procedimiento
 		storedProcedure.setParameter("P_CLIENTE", cliente);
 		storedProcedure.setParameter("P_ESTADO", estado);
 
-		//Ejecutando el procedimiento
+		// Ejecutando el procedimiento
 		storedProcedure.execute();
 
-		//Obtengo el valor del parametro de salida
+		// Obtengo el valor del parametro de salida
 		res = (int) storedProcedure.getOutputParameterValue("P_SALIDA");
 
 		return res;
@@ -181,7 +181,7 @@ public class ClienteServiceImpl implements ClienteService {
 
 	@Override
 	public List<ClienteDTO> getClienteFecha(String fecha) throws ParseException {
-		//La fecha se recibe en el formato anio-mes-dia
+		// La fecha se recibe en el formato anio-mes-dia
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
 		Calendar cal = Calendar.getInstance();
@@ -234,7 +234,7 @@ public class ClienteServiceImpl implements ClienteService {
 
 		return clientes;
 	}
-	
+
 	@Override
 	public int insertClienteAutoId(Cliente c) {
 		// TODO Auto-generated method stub
@@ -246,9 +246,61 @@ public class ClienteServiceImpl implements ClienteService {
 		// TODO Auto-generated method stub
 		clienteDao.updateCliente(c);
 	}
-	
+
 	@Override
 	public int ejecutarProcJdbc(Integer cliente, Boolean estado) {
 		return clienteDao.ejecutarProcedimientoJdbc(cliente, estado);
+	}
+
+	@Override
+	public int[][] cargaMasiva() throws ParseException {
+		List<Vehiculo> vehiculos = prepararColeccion();
+		int[][] cantidad = clienteDao.batchInsertVehiculos(vehiculos);
+		return cantidad;
+	}
+
+	public List<Vehiculo> prepararColeccion() throws ParseException {
+		String csv = "/Users/rober/Downloads/vehiculos.csv";
+		List<Vehiculo> coleccion = new ArrayList<Vehiculo>();
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		Calendar cal = Calendar.getInstance();
+
+		BufferedReader br = null;
+		String line = "";
+		String cvsSplitBy = ",";
+		try {
+
+			br = new BufferedReader(new FileReader(csv));
+			while ((line = br.readLine()) != null) {
+
+				String[] vStr = line.split(cvsSplitBy);
+				Vehiculo v = new Vehiculo();
+				v.setCvehiculo(Integer.parseInt(vStr[0]));
+				v.setSmarca(vStr[1]);
+				v.setSmodelo(vStr[2]);
+				v.setSchassis(vStr[3]);
+				cal.setTime(sdf.parse(vStr[4]));
+				v.setFcompra(cal);
+				v.setBestado(vStr[5].equals("t") ? true : false);
+				v.setCcliente(Integer.parseInt(vStr[6]));
+
+				coleccion.add(v);
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if (br != null) {
+				try {
+					br.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+
+		return coleccion;
 	}
 }

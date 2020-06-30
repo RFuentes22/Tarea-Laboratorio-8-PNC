@@ -49,4 +49,6 @@ public interface ClienteService {
 
 	public int ejecutarProcJdbc(Integer cliente, Boolean estado);
 
+	public int[][] cargaMasiva() throws ParseException;
+
 }
