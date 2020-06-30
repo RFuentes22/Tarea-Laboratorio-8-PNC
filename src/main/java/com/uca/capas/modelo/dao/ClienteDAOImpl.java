@@ -36,48 +36,52 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public class ClienteDAOImpl implements ClienteDAO {
-	
+
 	/*
-	 * Definimos el objeto EntityManager con el cual ejecutaremos
-	 * consultas a la base de datos, para esto utilizamos la anotacion
-	 * @PersistenceContext, al cual le definimos el nombre de la unidad
-	 * de persistencia que le fue asignado en la clase JpaConfiguration (linea 21)
-	 * con la propiedad unitName, con esto tenemos el objeto EntityManager
-	 * de la base de datos definida en nuestra clase de configuracion de Jpa
+	 * Definimos el objeto EntityManager con el cual ejecutaremos consultas a la
+	 * base de datos, para esto utilizamos la anotacion
+	 * 
+	 * @PersistenceContext, al cual le definimos el nombre de la unidad de
+	 * persistencia que le fue asignado en la clase JpaConfiguration (linea 21) con
+	 * la propiedad unitName, con esto tenemos el objeto EntityManager de la base de
+	 * datos definida en nuestra clase de configuracion de Jpa
 	 */
 	@PersistenceContext(unitName = "modelo-persistence")
 	EntityManager entityManager;
-	
+
+	@Autowired
+	JdbcTemplate jdbcTemplate;
+
 	@Override
 	public List<Cliente> findAll() throws DataAccessException {
-		//Creamos un objeto StringBuffer para definir la consulta a ejecutar
+		// Creamos un objeto StringBuffer para definir la consulta a ejecutar
 		StringBuffer sb = new StringBuffer();
-		//Definimos la consulta con el metodo append
+		// Definimos la consulta con el metodo append
 		sb.append("select * from store.cliente");
 		/*
-		 * Declaramos un objeto de tipo javax.persistence.Query, el cual representa a la consulta
-		 * Dicho objeto no lo instanciamos, sino que le asignamos lo que devuelve el metodo
-		 * createNativeQuery del entityManager, el cual recibe dos parametros
-		 * 1. La consulta de tipo String
-		 * 2. La referencia de la clase a la que queremos mapear el resultado (Cliente)
+		 * Declaramos un objeto de tipo javax.persistence.Query, el cual representa a la
+		 * consulta Dicho objeto no lo instanciamos, sino que le asignamos lo que
+		 * devuelve el metodo createNativeQuery del entityManager, el cual recibe dos
+		 * parametros 1. La consulta de tipo String 2. La referencia de la clase a la
+		 * que queremos mapear el resultado (Cliente)
 		 */
 		Query query = entityManager.createNativeQuery(sb.toString(), Cliente.class);
 
 		/*
 		 * Ejecutamos la consulta con el metodo getResultList() de nuestro objeto Query
-		 * el cual devolvera una lista del tipo definido anteriormente (Cliente.class)
-		 * y lo asignamos a una lista de tipo cliente
+		 * el cual devolvera una lista del tipo definido anteriormente (Cliente.class) y
+		 * lo asignamos a una lista de tipo cliente
 		 */
 		List<Cliente> res = query.getResultList();
-		//Devolvemos la lista con la coleccion de Clientes
+		// Devolvemos la lista con la coleccion de Clientes
 		return res;
 	}
 
 	public Cliente findOne(Integer codigo) throws DataAccessException {
 		/*
-		 * Para obtener un cliente en base a su llave primaria nos auxiliaremos
-		 * del metodo find del objeto EntityManager, el cual recibe de parametro la
-		 * referencia de la clase sobre la cual queremos buscar la entidad, y como 
+		 * Para obtener un cliente en base a su llave primaria nos auxiliaremos del
+		 * metodo find del objeto EntityManager, el cual recibe de parametro la
+		 * referencia de la clase sobre la cual queremos buscar la entidad, y como
 		 * segundo parametros el valor de la llave primaria, el cual es enviado como
 		 * parametro en el metodo. Dicho metodo devolvera el objeto Cliente encontrado
 		 * para esa llave primaria, sino lo encuentra devolverá NULL
@@ -87,14 +91,14 @@ public class ClienteDAOImpl implements ClienteDAO {
 	}
 
 	public void save(Cliente c) throws DataAccessException {
-		
-		if(c.getCcliente() == null) { //Si la propiedad de la llave primaria viene vacío, entonces es un INSERT
-			entityManager.persist(c); //Utilizamos persist ya que es un INSERT
+
+		if (c.getCcliente() == null) { // Si la propiedad de la llave primaria viene vacío, entonces es un INSERT
+			entityManager.persist(c); // Utilizamos persist ya que es un INSERT
+		} else { // Caso contrario, se busco al cliente, por lo que la propiedad ccliente viene
+					// llena (el input hidden del formulario)
+			entityManager.merge(c); // Utilizamos merge ya que es un UPDATE
 		}
-		else { //Caso contrario, se busco al cliente, por lo que la propiedad ccliente viene llena (el input hidden del formulario)
-			entityManager.merge(c); //Utilizamos merge ya que es un UPDATE
-		}
-		
+
 	}
 
 	public List<Cliente> getClientesEstado(Boolean estado) {
@@ -137,7 +141,8 @@ public class ClienteDAOImpl implements ClienteDAO {
 
 		// Creamos el WHERE, definido por el objeto Predicate y creamos las condiciones
 		// auxiliandonos de los metodos provistos por el objeto CriteriaBuilder
-		// En este caso buscaremos los clientes con fecha de nacimiento mayor o igual a la ingresada por parametro
+		// En este caso buscaremos los clientes con fecha de nacimiento mayor o igual a
+		// la ingresada por parametro
 		Predicate predicate = cb.greaterThan(clientes.get("fnacimiento"), fecha.getTime());
 
 		// Ahora construimos toda la consulta con cada objeto creado
@@ -199,5 +204,53 @@ public class ClienteDAOImpl implements ClienteDAO {
 
 		return resultado;
 	}
+
+	// Insert con JDBC
+	@Override
+	public int insertClienteAutoId(Cliente c) {
+		// TODO Auto-generated method stub
+		SimpleJdbcInsert jdbcInsert = new SimpleJdbcInsert(jdbcTemplate).withSchemaName("store")
+				.withTableName("cliente").usingGeneratedKeyColumns("c_cliente");
+		Map<String, Object> paramemetros = new HashMap<String, Object>();
+		paramemetros.put("s_nombres", c.getSnombres());
+		paramemetros.put("s_apellidos", c.getSapellidos());
+		paramemetros.put("f_nacimiento", c.getFnacimiento());
+		paramemetros.put("b_activo", c.getBactivo());
+
+		Number id_generated = jdbcInsert.executeAndReturnKey(paramemetros);
+		return id_generated.intValue();
+	}
+
+	// Update con JDBC
+	@Override
+	public void updateCliente(Cliente c) {
+		// TODO Auto-generated method stub
+		final String sql = "UPDATE store.cliente SET s_nombres = ?, s_apellidos = ?, f_nacimiento = ?, b_activo = ? WHERE c_cliente = ?";
+		Object[] parametros = new Object[] { c.getSnombres(), c.getSapellidos(), c.getFnacimiento(), c.getBactivo(),
+				c.getCcliente() };
+		jdbcTemplate.update(sql, parametros);
+	}
 	
+	//PROCEDIMIENTO ALMACENADO
+			@Override
+			public int ejecutarProcedimientoJdbc(Integer cliente, Boolean estado) {
+				SimpleJdbcCall jdbcCall = new SimpleJdbcCall(jdbcTemplate)
+						.withSchemaName("store")
+						.withProcedureName("sp_actualizar_cliente")
+						.withoutProcedureColumnMetaDataAccess();
+				
+				jdbcCall.addDeclaredParameter(new SqlParameter("p_cliente", Types.INTEGER));
+				jdbcCall.addDeclaredParameter(new SqlParameter("p_estado", Types.BOOLEAN));
+				jdbcCall.addDeclaredParameter(new SqlOutParameter("p_salida", Types.INTEGER));
+				
+				
+				Map<String, Object> parametros = new HashMap<>();
+				parametros.put("p_cliente", cliente);
+				parametros.put("p_estado", estado);
+
+				Map<String, Object> out = jdbcCall.execute(parametros);
+
+				return Integer.parseInt(out.get("p_salida").toString());
+			}
+
 }
